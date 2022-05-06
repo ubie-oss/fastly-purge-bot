@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+    - 'v*'
+    branches-ignore:
+    - '**'
+
+env:
+  IMAGE: ghcr.io/itkq/fastly-purge-bot
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - id: meta
+      uses: docker/metadata-action@v4
+      with:
+        images: ${{ env.IMAGE }}
+        tags: |
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest
+
+    - uses: docker/setup-buildx-action@v2
+
+    - uses: docker/login-action@v2
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.CR_PAT }}
+
+    - uses: docker/build-push-action@v3
+      with:
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
