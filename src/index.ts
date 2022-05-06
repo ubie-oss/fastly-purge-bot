@@ -1,4 +1,5 @@
 import { App, PlainTextOption, View, Block, KnownBlock } from '@slack/bolt';
+import { WebClient } from '@slack/web-api';
 import { FastlyClient, Service } from './fastly';
 
 export const app = new App({
@@ -21,6 +22,8 @@ if (notifyChannelId === undefined) {
   console.error('NOTIFY_CHANNEL_ID is required');
   process.exit(1);
 }
+
+const accessibleGroupIds = process.env.ACCESSIBLE_GROUP_IDS?.split(",") ?? [];
 
 const fastlyApiToken = process.env.FASTLY_API_TOKEN;
 if (fastlyApiToken === undefined) {
@@ -66,19 +69,51 @@ const VIEW_IDS = {
 const ViewTitle = "Purge Fastly cache"
 
 // 1. Receive a slash command
-app.command('/fastly-purge', async ({ ack, body, client, logger }) => {
+app.command('/fastly-purge', async ({ ack, body, client, logger, respond, say }) => {
   logger.info(`${body.user_id} triggered the action`);
 
-  await ack();
+  const authenticated = await authenticateUser(body.user_id, client);
+  if (authenticated) {
+    logger.info(`authentication succeeded. user_id:${body.user_id}`);
+  } else {
+    logger.info(`authentication failed. user_id:${body.user_id}`);
+    await respond({ response_type: 'ephemeral', text: 'You are not allowed to trigger this command!' });
+    return;
+  }
+
   try {
     await client.views.open({
       trigger_id: body.trigger_id,
       view: buildSelectPurgeMethodView(),
     });
+    await respond({ response_type: 'ephemeral', text: 'Opened the view' });
   } catch (error) {
     logger.error(error);
+    await respond({ response_type: 'ephemeral', text: `Error: ${error}` });
   }
 });
+
+const authenticateUser = async (userId: string, client: WebClient): Promise<boolean> => {
+  if (accessibleGroupIds.length === 0) {
+    return true;
+  }
+
+  const resp = await client.usergroups.list({ include_users: true });
+  if (!resp.ok) {
+    throw Error(`failed to list usergroups`);
+  }
+
+  // XXX: UsergroupsListResponse.usergroups doesn't include 'users' property
+  interface usergroupsWithUsers {
+    users: string[];
+  };
+
+  const group = resp.usergroups?.find((ug) => {
+    return accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId);
+  })
+
+  return group !== undefined;
+}
 
 // 2. Select the purge method
 app.action({ type: 'block_actions', action_id: ACTION_IDS.selectPurgeMethod }, async ({ ack, body, client, logger }) => {
