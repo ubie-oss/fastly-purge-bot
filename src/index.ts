@@ -4,6 +4,16 @@ import { FastlyClient, Service } from './fastly';
 export const app = new App({
   token: process.env.SLACK_BOT_TOKEN,
   signingSecret: process.env.SLACK_SIGNING_SECRET,
+  customRoutes: [
+    {
+      path: '/health-check',
+      method: ['GET'],
+      handler: (_req, res) => {
+        res.writeHead(200);
+        res.end('OK');
+      },
+    },
+  ],
 });
 
 const notifyChannelId = process.env.NOTIFY_CHANNEL_ID;
