@@ -1,6 +1,5 @@
-
-import fetch from "node-fetch";
-import LinkHeader from "http-link-header";
+import fetch from 'node-fetch';
+import LinkHeader from 'http-link-header';
 import Url from 'url-parse';
 
 type PurgeUrlResponse = { status: string, id: string };
@@ -22,18 +21,19 @@ type ListServicesParameters = {
 // https://developer.fastly.com/reference/api/purging/
 export class FastlyClient {
   private apiToken: string;
+
   private endpoint: string;
 
   constructor(apiToken: string) {
     this.apiToken = apiToken;
-    this.endpoint = "https://api.fastly.com";
+    this.endpoint = 'https://api.fastly.com';
   }
 
   private defaultHeaders(): { [key: string]: string } {
     return {
-      "Accept": 'application/json',
-      "Fastly-Key": this.apiToken,
-    }
+      Accept: 'application/json',
+      'Fastly-Key': this.apiToken,
+    };
   }
 
   async getService(serviceId: string): Promise<Service> {
@@ -49,11 +49,12 @@ export class FastlyClient {
     return await resp.json() as Service;
   }
 
+  /* eslint-disable no-await-in-loop */
   async ListServices(): Promise<Array<Service>> {
     let page = 1;
     let allServices: Array<Service> = [];
 
-    while (true) {
+    for (;;) {
       const [services, nextPage] = await this.listServicesWithNextPage({ page, perPage: 20, sort: 'name' });
       allServices = allServices.concat(services);
 
@@ -65,14 +66,17 @@ export class FastlyClient {
 
     return allServices;
   }
+  /* eslint-enable no-await-in-loop */
 
-  private async listServicesWithNextPage(params: ListServicesParameters): Promise<[Array<Service>, number?]> {
-    let url = new URL('/service', this.endpoint) + '?' + new URLSearchParams({
+  private async listServicesWithNextPage(
+    params: ListServicesParameters,
+  ): Promise<[Array<Service>, number?]> {
+    const url = `${new URL('/service', this.endpoint)}?${new URLSearchParams({
       page: params.page.toString(),
       direction: params.direction || 'ascend',
       per_page: params.perPage?.toString() || '20',
       sort: params.sort || 'created',
-    });
+    })}`;
 
     const resp = await fetch(url.toString(), {
       headers: this.defaultHeaders(),
@@ -84,7 +88,7 @@ export class FastlyClient {
 
     const linkHeader = resp.headers.get('link');
     if (linkHeader === null) {
-      throw new Error(`failed to list services; link response header is not found!`);
+      throw new Error('failed to list services; link response header is not found!');
     }
     const link = LinkHeader.parse(linkHeader);
 
@@ -105,7 +109,7 @@ export class FastlyClient {
   async PurgeUrl(url: string, soft: boolean): Promise<PurgeUrlResponse> {
     const resp = await fetch(url, {
       method: 'PURGE',
-      headers: { ...this.defaultHeaders(), "fastly-soft-purge": soft ? "1" : "0" },
+      headers: { ...this.defaultHeaders(), 'fastly-soft-purge': soft ? '1' : '0' },
     });
 
     if (!resp.ok) {
@@ -126,7 +130,7 @@ export class FastlyClient {
       throw Error(`failed to purge all: ${url}. Status ${resp.status}`);
     }
 
-    return await resp.json() as PurgeAllResponse
+    return await resp.json() as PurgeAllResponse;
   }
 
   async Purge(serviceId: string, surrogateKeys: string[], soft: boolean): Promise<PurgeResponse> {
@@ -134,9 +138,9 @@ export class FastlyClient {
     const resp = await fetch(url.toString(), {
       method: 'POST',
       headers: {
-        ...this.defaultHeaders(), 
-        "fastly-soft-purge": soft ? "1" : "0",
-        "surrogate-key": surrogateKeys.join(" "),
+        ...this.defaultHeaders(),
+        'fastly-soft-purge': soft ? '1' : '0',
+        'surrogate-key': surrogateKeys.join(' '),
       },
     });
 
