@@ -15,4 +15,5 @@ jobs:
         node-version: 14
 
     - run: npm i
+    - run: npm run lint
     - run: npm run build

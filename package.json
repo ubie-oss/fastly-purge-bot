@@ -8,12 +8,15 @@
     "build": "tsc -p .",
     "start": "node ./dist/index.js",
     "dev": "ts-node ./src/index.ts",
+    "lint": "eslint --ext .ts --ignore-path .gitignore .",
+    "lint:fix": "eslint --fix --ext .ts --ignore-path .gitignore .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Takuya Kosugiyama",
   "license": "MIT",
   "dependencies": {
     "@slack/bolt": "^3.11.0",
+    "@slack/web-api": "^6.7.1",
     "http-link-header": "^1.0.4",
     "node-fetch": "^2.6.7",
     "url-parse": "^1.5.10"
@@ -22,6 +25,14 @@
     "@types/http-link-header": "^1.0.3",
     "@types/node-fetch": "^2.6.1",
     "@types/url-parse": "^1.4.8",
+    "@typescript-eslint/eslint-plugin": "^5.23.0",
+    "@typescript-eslint/parser": "^5.23.0",
+    "eslint": "^8.15.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.6.2",
     "ts-node": "^10.7.0",
     "typescript": "^4.6.4"
   },
