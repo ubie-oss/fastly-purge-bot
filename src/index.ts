@@ -472,18 +472,17 @@ app.view(VIEW_IDS.selectService, async ({
   let purgeResult = 'Succeeded!';
   const serviceId = view.state.values[BLOCK_IDS.selectService][ACTION_IDS.selectService].selected_option!.value;
   const softPurge = view.state.values[BLOCK_IDS.selectSoftPurge][ACTION_IDS.selectSoftPurge].selected_option!.value === 'true';
-  const surrogateKeysStr = view.state.values[BLOCK_IDS.selectSurrogateKeys][ACTION_IDS.selectSurrogateKeys].value;
-  const surrogateKeys = surrogateKeysStr ? surrogateKeysStr.split(',') : [];
+  const surrogateKeys = view.state.values[BLOCK_IDS.selectSurrogateKeys][ACTION_IDS.selectSurrogateKeys].value?.split(',') ?? [];
 
   const service = await fastlyClient.getService(serviceId).catch((error: any) => { throw error; });
 
   try {
-    if (surrogateKeys.length === 0) {
-      await fastlyClient.PurgeAll(serviceId);
-      logger.info(`Performed purge-all. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
-    } else {
+    if (surrogateKeys.length > 0) {
       await fastlyClient.Purge(serviceId, surrogateKeys, softPurge);
       logger.info(`Performed purge. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
+    } else {
+      await fastlyClient.PurgeAll(serviceId);
+      logger.info(`Performed purge-all. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
     }
   } catch (error: any) {
     logger.error(`failed to purge fastly cache: ${error}`);
@@ -494,7 +493,7 @@ app.view(VIEW_IDS.selectService, async ({
   fields.set('Method', PURGE_METHODS.ByService);
   fields.set('Service', service.name);
   fields.set('Soft purge', String(softPurge));
-  fields.set('Surrogate keys', surrogateKeys.join(','));
+  fields.set('Surrogate keys', surrogateKeys.length > 0 ? surrogateKeys.join(',') : 'N/A');
 
   await client.chat.postMessage({
     channel: notifyChannelId,
