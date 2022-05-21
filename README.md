@@ -23,3 +23,7 @@ A slackbot to purge Fastly cache.
 
 Say `/fastly-purge`.
 
+## Demo
+
+https://user-images.githubusercontent.com/8341422/169656063-068f14bd-1577-4f24-9424-6abdde65adcc.mov
+
