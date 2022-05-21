@@ -583,6 +583,7 @@ app.view(VIEW_IDS.selectUrl, async ({
   const fields = new Map<string, string>();
   fields.set('Method', PURGE_METHODS.ByUrl);
   fields.set('Soft purge', String(softPurge));
+  fields.set('URL', url);
 
   await client.chat.postMessage({
     channel: notifyChannelId,
