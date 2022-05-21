@@ -90,6 +90,23 @@ const authenticateUser = async (userId: string, client: WebClient): Promise<bool
   return group !== undefined;
 };
 
+const buildInitView = (): View => ({
+  type: 'modal',
+  title: {
+    type: 'plain_text',
+    text: ViewTitle,
+  },
+  blocks: [
+    {
+      type: 'section',
+      text: {
+        type: 'plain_text',
+        text: 'Loading...',
+      },
+    },
+  ],
+});
+
 const buildSelectPurgeMethodView = (): View => ({
   type: 'modal',
   callback_id: VIEW_IDS.selectPurgeMethod,
@@ -403,6 +420,12 @@ app.command('/fastly-purge', async ({
   logger.info(`${body.user_id} triggered the action`);
   await ack();
 
+  // open first then update to avoid timeout error
+  const resp = await client.views.open({
+    trigger_id: body.trigger_id,
+    view: buildInitView(),
+  });
+
   const authenticated = await authenticateUser(body.user_id, client);
   if (authenticated) {
     logger.info(`authentication succeeded. user_id:${body.user_id}`);
@@ -413,8 +436,8 @@ app.command('/fastly-purge', async ({
   }
 
   try {
-    await client.views.open({
-      trigger_id: body.trigger_id,
+    await client.views.update({
+      view_id: resp.view?.id,
       view: buildSelectPurgeMethodView(),
     });
   } catch (error) {
