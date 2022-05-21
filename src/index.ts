@@ -395,9 +395,10 @@ const buildUpdatedView = (): View => ({
 
 // 1. Receive a slash command
 app.command('/fastly-purge', async ({
-  body, client, logger, respond,
+  body, client, logger, respond, ack,
 }) => {
   logger.info(`${body.user_id} triggered the action`);
+  await ack();
 
   const authenticated = await authenticateUser(body.user_id, client);
   if (authenticated) {
@@ -413,7 +414,6 @@ app.command('/fastly-purge', async ({
       trigger_id: body.trigger_id,
       view: buildSelectPurgeMethodView(),
     });
-    await respond({ response_type: 'ephemeral', text: 'Opened the view' });
   } catch (error) {
     logger.error(error);
     await respond({ response_type: 'ephemeral', text: `Error: ${error}` });
