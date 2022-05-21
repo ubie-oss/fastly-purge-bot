@@ -90,11 +90,15 @@ const authenticateUser = async (userId: string, client: WebClient): Promise<bool
   return group !== undefined;
 };
 
-const buildInitView = (): View => ({
+const buildLoadingView = (): View => ({
   type: 'modal',
   title: {
     type: 'plain_text',
     text: ViewTitle,
+  },
+  close: {
+    type: 'plain_text',
+    text: 'Cancel',
   },
   blocks: [
     {
@@ -201,8 +205,8 @@ const buildPurgeByServiceView = (services: Array<Service>): View => {
         block_id: BLOCK_IDS.selectService,
         element: {
           type: 'static_select',
-          options: serviceOptions,
           action_id: ACTION_IDS.selectService,
+          options: serviceOptions,
         },
       },
       {
@@ -423,7 +427,7 @@ app.command('/fastly-purge', async ({
   // open first then update to avoid timeout error
   const resp = await client.views.open({
     trigger_id: body.trigger_id,
-    view: buildInitView(),
+    view: buildLoadingView(),
   });
 
   const authenticated = await authenticateUser(body.user_id, client);
@@ -456,6 +460,11 @@ app.action({ type: 'block_actions', action_id: ACTION_IDS.selectPurgeMethod }, a
     throw Error('body.view is undefined!');
   }
 
+  await client.views.update({
+    view_id: body.view.id,
+    view: buildLoadingView(),
+  });
+
   const purgeMethod = body.view.state.values[BLOCK_IDS.selectPurgeMethod][ACTION_IDS.selectPurgeMethod].selected_option!.value as PurgeMethod;
   logger.info(`${body.user.id} selected purge method ==> ${purgeMethod}`);
 
@@ -463,16 +472,18 @@ app.action({ type: 'block_actions', action_id: ACTION_IDS.selectPurgeMethod }, a
     /* eslint-disable default-case */
     switch (purgeMethod) {
       case PURGE_METHODS.ByService: {
+        // open first then update to avoid timeout error
         const services = await fastlyClient.ListServices();
-        await client.views.push({
-          trigger_id: body.trigger_id,
+
+        await client.views.update({
+          view_id: body.view.id,
           view: buildPurgeByServiceView(services),
         });
         break;
       }
       case PURGE_METHODS.ByUrl: {
-        await client.views.push({
-          trigger_id: body.trigger_id,
+        await client.views.update({
+          view_id: body.view.id,
           view: buildPurgeByUrlView(),
         });
         break;
