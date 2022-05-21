@@ -344,7 +344,14 @@ const buildPurgeByUrlView = (): View => ({
   ],
 });
 
-const buildResultBlocks = (fields: Map<string, string>, result: string): Array<Block | KnownBlock> => [
+const buildResultBlocks = (userId: string, fields: Map<string, string>, result: string): Array<Block | KnownBlock> => [
+  {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `<@${userId}> submitted a purge request:`,
+    },
+  },
   {
     type: 'section',
     fields: [...fields.entries()].map((v) => ({
@@ -353,17 +360,13 @@ const buildResultBlocks = (fields: Map<string, string>, result: string): Array<B
     })),
   },
   {
-    type: 'header',
-    text: {
-      type: 'plain_text',
-      text: 'Result',
-    },
+    type: 'divider',
   },
   {
     type: 'section',
     text: {
       type: 'mrkdwn',
-      text: result,
+      text: `*Result:*\n${result}`,
     },
   },
 ];
@@ -469,13 +472,13 @@ app.view(VIEW_IDS.selectService, async ({
     return;
   }
 
-  let purgeResult = 'Succeeded!';
-  const serviceId = view.state.values[BLOCK_IDS.selectService][ACTION_IDS.selectService].selected_option!.value;
   const softPurge = view.state.values[BLOCK_IDS.selectSoftPurge][ACTION_IDS.selectSoftPurge].selected_option!.value === 'true';
   const surrogateKeys = view.state.values[BLOCK_IDS.selectSurrogateKeys][ACTION_IDS.selectSurrogateKeys].value?.split(',') ?? [];
 
+  const serviceId = view.state.values[BLOCK_IDS.selectService][ACTION_IDS.selectService].selected_option!.value;
   const service = await fastlyClient.getService(serviceId).catch((error: any) => { throw error; });
 
+  let purgeResult = 'Succeeded!';
   try {
     if (surrogateKeys.length > 0) {
       await fastlyClient.Purge(serviceId, surrogateKeys, softPurge);
@@ -497,8 +500,8 @@ app.view(VIEW_IDS.selectService, async ({
 
   await client.chat.postMessage({
     channel: notifyChannelId,
-    text: `<@${body.user.id}> have a new request:`,
-    blocks: buildResultBlocks(fields, purgeResult),
+    text: `<@${body.user.id}> submitted a purge request:`,
+    blocks: buildResultBlocks(body.user.id, fields, purgeResult),
   }).catch((e) => { logger.error(e); });
 });
 
@@ -513,11 +516,11 @@ app.view(VIEW_IDS.selectUrl, async ({
     return;
   }
 
-  let purgeResult = 'Succeeded!';
   const purge = view.state.values[BLOCK_IDS.selectSoftPurge][ACTION_IDS.selectSoftPurge].selected_option!.value;
   const softPurge = purge === 'true';
   const url = view.state.values[BLOCK_IDS.selectUrl][ACTION_IDS.selectUrl].value!;
 
+  let purgeResult = 'Succeeded!';
   try {
     await fastlyClient.PurgeUrl(url, softPurge);
     logger.info(`Performed purge-url. url:${url} softPurge:${softPurge} user:${body.user.id}`);
@@ -532,7 +535,7 @@ app.view(VIEW_IDS.selectUrl, async ({
 
   await client.chat.postMessage({
     channel: notifyChannelId,
-    text: `<@${body.user.id}> have a new request:`,
-    blocks: buildResultBlocks(fields, purgeResult),
+    text: `<@${body.user.id}> submitted a purge request:`,
+    blocks: buildResultBlocks(body.user.id, fields, purgeResult),
   }).catch((e) => { console.error(e); });
 });
