@@ -409,12 +409,15 @@ const buildResultBlocks = (userId: string, fields: Map<string, string>, result: 
   },
 ];
 
-const buildUpdatedView = (): View => ({
+const buildDoneView = (): View => ({
   type: 'modal',
-  callback_id: 'TODO',
   title: {
     type: 'plain_text',
     text: ViewTitle,
+  },
+  close: {
+    type: 'plain_text',
+    text: 'Close',
   },
   blocks: [
     {
@@ -428,7 +431,7 @@ const buildUpdatedView = (): View => ({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: '*Request done!*',
+        text: `Done! Your request was submitted to <#${notifyChannelId}>`,
       },
     },
   ],
@@ -517,7 +520,7 @@ app.view(VIEW_IDS.selectService, async ({
   ack, body, view, client, logger,
 }) => {
   try {
-    await ack({ response_action: 'update', view: buildUpdatedView() });
+    await ack({ response_action: 'update', view: buildDoneView() });
   } catch (error) {
     logger.error(`failed to update view: ${error}`);
     return;
@@ -561,7 +564,7 @@ app.view(VIEW_IDS.selectUrl, async ({
   ack, body, view, client, logger,
 }) => {
   try {
-    await ack({ response_action: 'update', view: buildUpdatedView() });
+    await ack({ response_action: 'update', view: buildDoneView() });
   } catch (error) {
     logger.error(`failed to update view: ${error}`);
     return;
