@@ -111,6 +111,23 @@ const buildLoadingView = (): View => ({
   ],
 });
 
+const buildUnauthenticatedView = (): View => ({
+  type: 'modal',
+  title: {
+    type: 'plain_text',
+    text: ViewTitle,
+  },
+  blocks: [
+    {
+      type: 'section',
+      text: {
+        type: 'plain_text',
+        text: 'You are not allowed to invoke this command. Please contact to the administrator.',
+      },
+    },
+  ],
+});
+
 const buildSelectPurgeMethodView = (): View => ({
   type: 'modal',
   callback_id: VIEW_IDS.selectPurgeMethod,
@@ -419,7 +436,7 @@ const buildUpdatedView = (): View => ({
 
 // 1. Receive a slash command
 app.command('/fastly-purge', async ({
-  body, client, logger, respond, ack,
+  body, client, logger, ack,
 }) => {
   logger.info(`${body.user_id} triggered the action`);
   await ack();
@@ -430,23 +447,23 @@ app.command('/fastly-purge', async ({
     view: buildLoadingView(),
   });
 
-  const authenticated = await authenticateUser(body.user_id, client);
-  if (authenticated) {
-    logger.info(`authentication succeeded. user_id:${body.user_id}`);
-  } else {
-    logger.info(`authentication failed. user_id:${body.user_id}`);
-    await respond({ response_type: 'ephemeral', text: 'You are not allowed to trigger this command!' });
-    return;
-  }
-
   try {
-    await client.views.update({
-      view_id: resp.view?.id,
-      view: buildSelectPurgeMethodView(),
-    });
+    const authenticated = await authenticateUser(body.user_id, client);
+    if (authenticated) {
+      logger.info(`authentication succeeded. user_id:${body.user_id}`);
+      await client.views.update({
+        view_id: resp.view?.id,
+        view: buildSelectPurgeMethodView(),
+      });
+    } else {
+      logger.info(`authentication failed. user_id:${body.user_id}`);
+      await client.views.update({
+        view_id: resp.view?.id,
+        view: buildUnauthenticatedView(),
+      });
+    }
   } catch (error) {
     logger.error(error);
-    await respond({ response_type: 'ephemeral', text: `Error: ${error}` });
   }
 });
 
