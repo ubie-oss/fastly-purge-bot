@@ -25,8 +25,6 @@ if (notifyChannelId === undefined) {
   process.exit(1);
 }
 
-const accessibleGroupIds = process.env.ACCESSIBLE_GROUP_IDS?.split(',') ?? [];
-
 const fastlyApiToken = process.env.FASTLY_API_TOKEN;
 if (fastlyApiToken === undefined) {
   console.error('FASTLY_API_TOKEN is required');
@@ -70,13 +68,21 @@ const VIEW_IDS = {
 
 const ViewTitle = 'Purge Fastly cache';
 
+const adminGroupId = process.env.ADMIN_GROUP_ID;
+const accessibleGroupIds = process.env.ACCESSIBLE_GROUP_IDS?.split(',') ?? [];
+if (adminGroupId !== undefined && accessibleGroupIds.length === 0) {
+  console.error('ACCESSIBLE_GROUP_IDS is required when ADMIN_GROUP_ID specified');
+  process.exit(1);
+}
+const accessibleGroupWithAdminGroupIds = accessibleGroupIds.concat(adminGroupId !== undefined ? [adminGroupId] : []);
+
 const authenticateUser = async (userId: string, client: WebClient): Promise<boolean> => {
   if (accessibleGroupIds.length === 0) {
     return true;
   }
 
   const resp = await client.usergroups.list({ include_users: true });
-  if (!resp.ok) {
+  if (!resp.ok || resp.usergroups === undefined) {
     throw Error('failed to list usergroups');
   }
 
@@ -85,9 +91,26 @@ const authenticateUser = async (userId: string, client: WebClient): Promise<bool
     users: string[];
   }
 
-  const group = resp.usergroups?.find((ug) => accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId));
+  return resp.usergroups.some((ug) => {
+    return accessibleGroupWithAdminGroupIds.includes(ug.id!)
+      && (ug as usergroupsWithUsers).users.includes(userId);
+  });
+};
 
-  return group !== undefined;
+const authenticateAdmin = async (userId: string, client: WebClient): Promise<boolean> => {
+  if (adminGroupId === undefined) {
+    return false;
+  }
+
+  const resp = await client.usergroups.users.list({
+    usergroup: adminGroupId,
+  });
+
+  if (!resp.ok || resp.users === undefined) {
+    throw Error('failed to list usergroup users');
+  }
+
+  return resp.users.some((u) => u === userId);
 };
 
 const buildLoadingView = (): View => ({
@@ -437,6 +460,26 @@ const buildDoneView = (): View => ({
   ],
 });
 
+const buildRequestBlocks = (userId: string, fields: Map<string, string>): Array<Block | KnownBlock> => [
+  {
+    type: 'section',
+    text: {
+      type: 'mrkdwn',
+      text: `<@${userId}> submitted a purge request:`,
+    },
+  },
+  {
+    type: 'section',
+    fields: [...fields.entries()].map((v) => ({
+      type: 'mrkdwn',
+      text: `*${v[0]}:*\n${v[1]}`,
+    })),
+  },
+  {
+    type: 'divider',
+  },
+];
+
 // 1. Receive a slash command
 app.command('/fastly-purge', async ({
   body, client, logger, ack,
@@ -493,7 +536,11 @@ app.action({ type: 'block_actions', action_id: ACTION_IDS.selectPurgeMethod }, a
     switch (purgeMethod) {
       case PURGE_METHODS.ByService: {
         // open first then update to avoid timeout error
-        const services = await fastlyClient.ListServices();
+        // const services = await fastlyClient.ListServices();
+        const services = [{
+          id: 'dummy',
+          name: 'dummy',
+        }];
 
         await client.views.update({
           view_id: body.view.id,
@@ -530,33 +577,42 @@ app.view(VIEW_IDS.selectService, async ({
   const surrogateKeys = view.state.values[BLOCK_IDS.selectSurrogateKeys][ACTION_IDS.selectSurrogateKeys].value?.split(',') ?? [];
 
   const serviceId = view.state.values[BLOCK_IDS.selectService][ACTION_IDS.selectService].selected_option!.value;
-  const service = await fastlyClient.getService(serviceId).catch((error: any) => { throw error; });
-
-  let purgeResult = 'Succeeded!';
-  try {
-    if (surrogateKeys.length > 0) {
-      await fastlyClient.Purge(serviceId, surrogateKeys, softPurge);
-      logger.info(`Performed purge. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
-    } else {
-      await fastlyClient.PurgeAll(serviceId);
-      logger.info(`Performed purge-all. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
-    }
-  } catch (error: any) {
-    logger.error(`failed to purge fastly cache: ${error}`);
-    purgeResult = error;
-  }
+  // const service = await fastlyClient.getService(serviceId).catch((error: any) => { throw error; });
 
   const fields = new Map<string, string>();
   fields.set('Method', PURGE_METHODS.ByService);
-  fields.set('Service', service.name);
+  fields.set('Service', 'FIXME');
   fields.set('Soft purge', String(softPurge));
   fields.set('Surrogate keys', surrogateKeys.length > 0 ? surrogateKeys.join(',') : 'N/A');
 
-  await client.chat.postMessage({
-    channel: notifyChannelId,
-    text: `<@${body.user.id}> submitted a purge request:`,
-    blocks: buildResultBlocks(body.user.id, fields, purgeResult),
-  }).catch((e) => { logger.error(e); });
+  const adminAuthenticated = await authenticateAdmin(body.user.id, client);
+  if (adminAuthenticated) {
+    await client.chat.postMessage({
+      channel: notifyChannelId,
+      text: `<@${body.user.id}> submitted a purge request:`,
+      blocks: buildRequestBlocks(body.user.id, fields),
+    }).catch((e) => { logger.error(e); });
+  } else {
+    let purgeResult = 'Succeeded!';
+    try {
+      if (surrogateKeys.length > 0) {
+        // await fastlyClient.Purge(serviceId, surrogateKeys, softPurge);
+        logger.info(`Performed purge. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
+      } else {
+        // await fastlyClient.PurgeAll(serviceId);
+        logger.info(`Performed purge-all. serviceId:${serviceId} softPurge:${softPurge} surrogateKeys:${surrogateKeys} user:${body.user.id}`);
+      }
+    } catch (error: any) {
+      logger.error(`failed to purge fastly cache: ${error}`);
+      purgeResult = error;
+    }
+
+    await client.chat.postMessage({
+      channel: notifyChannelId,
+      text: `<@${body.user.id}> submitted a purge request:`,
+      blocks: buildResultBlocks(body.user.id, fields, purgeResult),
+    }).catch((e) => { logger.error(e); });
+  }
 });
 
 // 3-b. Purge by URL and finish the view
@@ -574,13 +630,13 @@ app.view(VIEW_IDS.selectUrl, async ({
   const softPurge = purge === 'true';
   const url = view.state.values[BLOCK_IDS.selectUrl][ACTION_IDS.selectUrl].value!;
 
-  let purgeResult = 'Succeeded!';
+  const purgeResult = 'Succeeded!';
   try {
-    await fastlyClient.PurgeUrl(url, softPurge);
+    // await fastlyClient.PurgeUrl(url, softPurge);
     logger.info(`Performed purge-url. url:${url} softPurge:${softPurge} user:${body.user.id}`);
   } catch (error: any) {
     logger.error(`failed to purge fastly cache: ${error}`);
-    purgeResult = error;
+    // purgeResult = error;
   }
 
   const fields = new Map<string, string>();
