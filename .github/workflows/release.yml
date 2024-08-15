@@ -8,7 +8,7 @@ on:
     - '**'
 
 env:
-  IMAGE: ghcr.io/itkq/fastly-purge-bot
+  IMAGE: ghcr.io/ubie-oss/fastly-purge-bot
 
 jobs:
   build:
