@@ -1,7 +1,7 @@
-import {
-  App, PlainTextOption, View, Block, KnownBlock,
-} from '@slack/bolt';
-import { WebClient } from '@slack/web-api';
+import { App } from '@slack/bolt';
+import type {
+  PlainTextOption, View, KnownBlock, Block,
+} from '@slack/types';
 import { FastlyClient, Service } from './fastly';
 
 export const app = new App({
@@ -70,7 +70,7 @@ const VIEW_IDS = {
 
 const ViewTitle = 'Purge Fastly cache';
 
-const authenticateUser = async (userId: string, client: WebClient): Promise<boolean> => {
+const authenticateUser = async (userId: string, client: any): Promise<boolean> => {
   if (accessibleGroupIds.length === 0) {
     return true;
   }
@@ -85,7 +85,7 @@ const authenticateUser = async (userId: string, client: WebClient): Promise<bool
     users: string[];
   }
 
-  const group = resp.usergroups?.find((ug) => accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId));
+  const group = resp.usergroups?.find((ug: any) => accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId));
 
   return group !== undefined;
 };
@@ -455,13 +455,13 @@ app.command('/fastly-purge', async ({
     if (authenticated) {
       logger.info(`authentication succeeded. user_id:${body.user_id}`);
       await client.views.update({
-        view_id: resp.view?.id,
+        view_id: resp.view?.id!,
         view: buildSelectPurgeMethodView(),
       });
     } else {
       logger.info(`authentication failed. user_id:${body.user_id}`);
       await client.views.update({
-        view_id: resp.view?.id,
+        view_id: resp.view?.id!,
         view: buildUnauthenticatedView(),
       });
     }
