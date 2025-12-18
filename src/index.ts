@@ -27,6 +27,8 @@ if (notifyChannelId === undefined) {
 
 const accessibleGroupIds = process.env.ACCESSIBLE_GROUP_IDS?.split(',') ?? [];
 
+const slackCommand = process.env.SLACK_COMMAND || '/fastly-purge';
+
 const fastlyApiToken = process.env.FASTLY_API_TOKEN;
 if (fastlyApiToken === undefined) {
   console.error('FASTLY_API_TOKEN is required');
@@ -438,7 +440,7 @@ const buildDoneView = (): View => ({
 });
 
 // 1. Receive a slash command
-app.command('/fastly-purge', async ({
+app.command(slackCommand, async ({
   body, client, logger, ack,
 }) => {
   logger.info(`${body.user_id} triggered the action`);
