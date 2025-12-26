@@ -1,6 +1,7 @@
-import {
-  App, PlainTextOption, View, Block, KnownBlock,
-} from '@slack/bolt';
+import { App } from '@slack/bolt';
+import type {
+  PlainTextOption, View, Block, KnownBlock,
+} from '@slack/types';
 import { WebClient } from '@slack/web-api';
 import { FastlyClient, Service } from './fastly';
 
@@ -454,16 +455,20 @@ app.command('/fastly-purge', async ({
     const authenticated = await authenticateUser(body.user_id, client);
     if (authenticated) {
       logger.info(`authentication succeeded. user_id:${body.user_id}`);
-      await client.views.update({
-        view_id: resp.view?.id,
-        view: buildSelectPurgeMethodView(),
-      });
+      if (resp.view?.id) {
+        await client.views.update({
+          view_id: resp.view.id,
+          view: buildSelectPurgeMethodView(),
+        });
+      }
     } else {
       logger.info(`authentication failed. user_id:${body.user_id}`);
-      await client.views.update({
-        view_id: resp.view?.id,
-        view: buildUnauthenticatedView(),
-      });
+      if (resp.view?.id) {
+        await client.views.update({
+          view_id: resp.view.id,
+          view: buildUnauthenticatedView(),
+        });
+      }
     }
   } catch (error) {
     logger.error(error);
