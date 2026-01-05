@@ -10,6 +10,7 @@ A slackbot to purge Fastly cache.
 | SLACK_SIGNING_SECRET | Yes | |
 | FASTLY_API_TOKEN | Yes | Scopes: [global:read, purge_all, purge_select] |
 | NOTIFY_CHANNEL_ID | Yes | Slack channel ID used to notify result |
+| SLACK_COMMAND | No | Slack slash command name (default: `/fastly-purge`) |
 | PORT | No | Listen port (default :3000) |
 | ACCESSIBLE_GROUP_IDS | No | Slack group IDs (Comma-separated) that can invoke command |
 
@@ -21,7 +22,7 @@ A slackbot to purge Fastly cache.
 
 ## Usage
 
-Say `/fastly-purge`.
+Say `/fastly-purge` (or the command you configured with `SLACK_COMMAND`).
 
 ## Demo
 

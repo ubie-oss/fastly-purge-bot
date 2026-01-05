@@ -1,7 +1,7 @@
-import {
-  App, PlainTextOption, View, Block, KnownBlock,
-} from '@slack/bolt';
-import { WebClient } from '@slack/web-api';
+import { App } from '@slack/bolt';
+import type {
+  PlainTextOption, View, KnownBlock, Block,
+} from '@slack/types';
 import { FastlyClient, Service } from './fastly';
 
 export const app = new App({
@@ -26,6 +26,8 @@ if (notifyChannelId === undefined) {
 }
 
 const accessibleGroupIds = process.env.ACCESSIBLE_GROUP_IDS?.split(',') ?? [];
+
+const slackCommand = process.env.SLACK_COMMAND || '/fastly-purge';
 
 const fastlyApiToken = process.env.FASTLY_API_TOKEN;
 if (fastlyApiToken === undefined) {
@@ -70,7 +72,7 @@ const VIEW_IDS = {
 
 const ViewTitle = 'Purge Fastly cache';
 
-const authenticateUser = async (userId: string, client: WebClient): Promise<boolean> => {
+const authenticateUser = async (userId: string, client: any): Promise<boolean> => {
   if (accessibleGroupIds.length === 0) {
     return true;
   }
@@ -85,7 +87,7 @@ const authenticateUser = async (userId: string, client: WebClient): Promise<bool
     users: string[];
   }
 
-  const group = resp.usergroups?.find((ug) => accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId));
+  const group = resp.usergroups?.find((ug: any) => accessibleGroupIds.includes(ug.id!) && (ug as usergroupsWithUsers).users.includes(userId));
 
   return group !== undefined;
 };
@@ -438,7 +440,7 @@ const buildDoneView = (): View => ({
 });
 
 // 1. Receive a slash command
-app.command('/fastly-purge', async ({
+app.command(slackCommand, async ({
   body, client, logger, ack,
 }) => {
   logger.info(`${body.user_id} triggered the action`);
@@ -455,13 +457,13 @@ app.command('/fastly-purge', async ({
     if (authenticated) {
       logger.info(`authentication succeeded. user_id:${body.user_id}`);
       await client.views.update({
-        view_id: resp.view?.id,
+        view_id: resp.view?.id!,
         view: buildSelectPurgeMethodView(),
       });
     } else {
       logger.info(`authentication failed. user_id:${body.user_id}`);
       await client.views.update({
-        view_id: resp.view?.id,
+        view_id: resp.view?.id!,
         view: buildUnauthenticatedView(),
       });
     }
