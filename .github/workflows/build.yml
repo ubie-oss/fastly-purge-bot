@@ -6,14 +6,25 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
 
-    - uses: actions/setup-node@v3
-      with:
-        node-version: 14
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '24.15.0'
+          cache: pnpm
 
-    - run: npm i
-    - run: npm run lint
-    - run: npm run build
+      - run: corepack enable
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm audit
+
+      - run: pnpm run lint
+
+      - run: pnpm run build

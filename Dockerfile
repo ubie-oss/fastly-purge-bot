@@ -1,15 +1,21 @@
-FROM node:latest AS build
+FROM node:24.15.0-bookworm-slim AS build
 
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 WORKDIR /usr/src/app
-COPY package*.json .
-RUN npm ci
+
+RUN corepack enable
+
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN corepack prepare pnpm@11.1.1 --activate \
+  && pnpm install --frozen-lockfile
+
 COPY . .
-RUN npm run build
+RUN pnpm run build
 
-FROM node:lts-alpine
-RUN apk add dumb-init
+FROM node:24.15.0-alpine
+RUN apk add --no-cache dumb-init
 
-ENV NODE_ENV production
+ENV NODE_ENV=production
 USER node
 WORKDIR /usr/src/app
 COPY --chown=node:node --from=build /usr/src/app/node_modules /usr/src/app/node_modules
